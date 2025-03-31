@@ -49,23 +49,49 @@ sudo useradd -g gpadmin gpadmin
 sudo passwd gpadmin  <enter gp admin password of your choice>
 
 # To avoid entering password every time on gpadmin user , create a sudo file 
-vi sudo
+sudo visudo
 
 # add this line in sudo file
 gpadmin ALL=(ALL) NOPASSWD: ALL
 ```
 5. Configure your vm for gp system settings 
 
- * **Deactivate or Configure SELinux**
+ * **Deactivate or Configure SELinux and Firewall**
      ```
      # As the root user, check the status of SELinux:
      sestatus
-     #output - SELinuxstatus: disabled
+     #output - SELinux status: disabled
     ```
     If SELinux is not deactivated, deactivate it by editing the `/etc/selinux/config` file. As root, change the value of the `SELINUX` parameter in the `config` file as follows:
+     
      ```
+     #Open the SELinux configuration file: Use a text editor with root privileges: sudo nano /etc/selinux/config.
+     vi /etc/selinux/config
+
+     # Modify the SELINUX setting: Locate the line that starts with SELINUX= and change the value from enforcing to disabled
      SELINUX=disabled
+
+     #reboot vm to apply changes
+      reboot
     ```
+    You should also deactivate firewall software such as firewalld (on systems such as RHEL). If firewall software is not deactivated, you must instead configure your software to allow required communication between Greenplum hosts.
+    ```
+    # 1.Check the status of firewalld with the command:
+     systemctl status firewalld
+
+    # If firewalld is deactivated, the command output is:
+      * firewalld.service - firewalld - dynamic firewall daemon
+      Loaded: loaded (/usr/lib/systemd/system/firewalld.service; disabled; vendor preset: enabled)
+      Active: inactive (dead)
+
+   # If necessary, run these commands as root to deactivate firewalld:
+    sudo su 
+
+   systemctl stop firewalld.service
+   systemctl disable firewalld.service
+
+
+
  * **The sysctl.conf File**
     
     The `sysctl.conf` parameters listed in this topic are for performance, optimization, and consistency in a wide variety of environments. Change these settings according to your specific situation and setup.
@@ -129,8 +155,16 @@ gpadmin ALL=(ALL) NOPASSWD: ALL
    #Update hosts file for adding ip as cdw 
    vi /etc/hosts
    #Add bolow line in hosts file and save it
-   172.31.20.123 cdw
+   <coordinator vm ip > cdw
+   <segment1 vm ip > sdw1
+    <segment2 vm ip > sdw2
    
+   #login as gpadmin
+   su - gpadmin
+  
+   #copy ssh key for password less on segment hosts (sdw1,sdw2)
+    ssh-copy-id -i /home/gpadmin/.ssh/id_rsa.pub gpadmin@sdw1
+    ssh-copy-id -i /home/gpadmin/.ssh/id_rsa.pub gpadmin@sdw2
    #Run the gpssh-exkeys utility with your hostfile_exkeys file to enable n-n passwordless SSH for the gpadmin #user.
    gpssh-exkeys -h cdw
    
@@ -157,7 +191,7 @@ gpadmin ALL=(ALL) NOPASSWD: ALL
    ```
    #Creating the Greenplum Database Configuration File -  to create the a gpinitsystem_config file Create gpconfig dir first 
 
-   mkdir gpcongigs
+   mkdir gpconfigs
 
    # Now , Make a copy of the gpinitsystem_config file to use as a starting point.
    cp $GPHOME/docs/cli_help/gpconfigs/gpinitsystem_config  /home/gpadmin/gpconfigs/gpinitsystem_config
